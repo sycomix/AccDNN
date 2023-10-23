@@ -26,10 +26,17 @@ def check_prototxt(model_file):
     try:
         Merge((open(model_file,'r').read()), net)
     except Exception as e:
-        return json.dumps({'status':'Error', 'detail':'Network file parse error:' + str(e)})
+        return json.dumps(
+            {'status': 'Error', 'detail': f'Network file parse error:{str(e)}'}
+        )
     for layer in net.layer:
         if layer.type not in supported_layers:
-            return json.dumps({'status':'Error', 'detail':'{} layer is not supported.'.format(layer.type)})
+            return json.dumps(
+                {
+                    'status': 'Error',
+                    'detail': f'{layer.type} layer is not supported.',
+                }
+            )
         if layer.type == 'Pooling':
             if layer.pooling_param.pool != 0:
                 return json.dumps({'status':'Error', 'detail':'Only MAX pooling layer is supported.'})
@@ -42,8 +49,12 @@ def check_weights(model_file, weight_file):
     cmd = os.path.join(root_dir, 'build/tools/caffe') + ' test -model ' + model_file + ' -weights ' + weight_file + ' -iterations 1'
     ret = subprocess.call(cmd, shell=True)
     if ret != 0:
-        return json.dumps({'status':'Error', 'detail':\
-               'Can\'t not creat caffe model with provided weights file, error code is {}'.format(ret)})
+        return json.dumps(
+            {
+                'status': 'Error',
+                'detail': f"Can\'t not creat caffe model with provided weights file, error code is {ret}",
+            }
+        )
     return json.dumps({'status':'Success', 'detail':''})
 
 def accdnn_profile(model_file, acc_settings_json):
@@ -82,11 +93,11 @@ def accdnn_optimze(model_file, acc_settings_json, optim_info_json):
 
 def accdnn_codegen(model_file, weight_file, acc_settings_json, optim_info_json):
     if os.path.exists(OUTPUT_PATH):
-        os.system('rm -rf ' + OUTPUT_PATH)
-    os.system('mkdir -p ' + OUTPUT_PATH)
-    os.system('mkdir -p ' + VERILOG_FILE_PATH)
-    os.system('mkdir -p ' + MEM_COE_FILE_PATH)
-    os.system('mkdir -p ' + TIMING_FILE_PATH)
+        os.system(f'rm -rf {OUTPUT_PATH}')
+    os.system(f'mkdir -p {OUTPUT_PATH}')
+    os.system(f'mkdir -p {VERILOG_FILE_PATH}')
+    os.system(f'mkdir -p {MEM_COE_FILE_PATH}')
+    os.system(f'mkdir -p {TIMING_FILE_PATH}')
 
     acc_settings = json.loads(acc_settings_json)
     optim_info = json.loads(optim_info_json)
@@ -105,7 +116,7 @@ def accdnn_codegen(model_file, weight_file, acc_settings_json, optim_info_json):
         model_inst.memory_summary(default_resource_file)
         model_profile, optim_info = model_inst.profile(default_resource_file)
     except Exception as e:
-        return json.dumps({'status':'Error', 'detail':str(e), 'stats':'', 'codepath':''})   
+        return json.dumps({'status':'Error', 'detail':str(e), 'stats':'', 'codepath':''})
     model_inst.file_list_gen()
     model_inst.timing_constraints_gen()
     model_inst.register_map_gen()
@@ -118,7 +129,7 @@ def accdnn_codegen(model_file, weight_file, acc_settings_json, optim_info_json):
     os.system("rm build/file_list.txt && rm build/imp_file.f")
     # add the mul ip tcl to the ips.tcl
     mul_ip_file = os.path.join(root_dir, os.path.join(LIB_IP_FILE_PATH, 'mul.tcl'))
-    os.system('cat ' + mul_ip_file + ' >> build/ips.tcl')
+    os.system(f'cat {mul_ip_file} >> build/ips.tcl')
     os.system("zip -r -q build.zip build/ && rm -rf build && mv build.zip /tmp/")
     return json.dumps({'status':'Encrypting', 'detail':'', 'stats':model_profile, 'codepath':default_output_path})
 

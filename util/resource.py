@@ -11,7 +11,7 @@ depth_list = [16392, 8192, 4096, 2048, 1024, 512]
 def get_brams(wr_width, wr_depth, rd_width, rd_depth, total=False):
     width = max(wr_width, rd_width)
     depth = min(wr_depth, rd_depth)
- 
+
     row36 = 0
     col36 = 0
     #assign 36K first
@@ -29,19 +29,15 @@ def get_brams(wr_width, wr_depth, rd_width, rd_depth, total=False):
         col18 = int(math.ceil(float(depth)/512.0))
         width = width - row18 * 36
     blk18_num = row18 * col18
-    
+
     for idx in range(len(width_list)):
         if width > width_list[idx]:
             continue
-        else: 
-           col = int(math.ceil(float(depth)/float(depth_list[idx])))
-           break
+        col = int(math.ceil(float(depth)/float(depth_list[idx])))
+        break
     blk18_num = blk18_num + 1 * col
-    
-    if total is False:
-        return blk18_num, blk36_num
-    else:
-        return blk18_num + 2 * blk36_num
+
+    return (blk18_num, blk36_num) if total is False else blk18_num + 2 * blk36_num
 
 def get_dsps_resource(res_file=None):
     if res_file is None:

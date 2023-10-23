@@ -82,40 +82,40 @@ DQ = 6
 # AccDNN Project root
 DNN2FPGA_ROOT = '.'
 # Build output path
-OUTPUT_PATH = DNN2FPGA_ROOT + '/build'
+OUTPUT_PATH = f'{DNN2FPGA_ROOT}/build'
 # Path of the operator conf file
-OPERATOR_CONF_FILE_PATH = DNN2FPGA_ROOT + '/conf/operator.conf'
+OPERATOR_CONF_FILE_PATH = f'{DNN2FPGA_ROOT}/conf/operator.conf'
 # Path of the hardware conf file
-HARDWARE_CONF_FILE_PATH = DNN2FPGA_ROOT + '/conf/hardware.conf'
+HARDWARE_CONF_FILE_PATH = f'{DNN2FPGA_ROOT}/conf/hardware.conf'
 # Path of the lib source files
-LIB_SOURCE_FILE_PATH = DNN2FPGA_ROOT + '/lib/verilog'
+LIB_SOURCE_FILE_PATH = f'{DNN2FPGA_ROOT}/lib/verilog'
 # Path of the lib IP files
-LIB_IP_FILE_PATH = DNN2FPGA_ROOT + '/lib/ip'
+LIB_IP_FILE_PATH = f'{DNN2FPGA_ROOT}/lib/ip'
 # Path of the generated source code
-VERILOG_FILE_PATH = OUTPUT_PATH + '/src'
+VERILOG_FILE_PATH = f'{OUTPUT_PATH}/src'
 # Path of the generated TCL file
 TCL_FILE_PATH = OUTPUT_PATH
 # Path of the generated COE files
-MEM_COE_FILE_PATH = OUTPUT_PATH + '/coe'
+MEM_COE_FILE_PATH = f'{OUTPUT_PATH}/coe'
 # Path of the generated timing constraint file
-TIMING_FILE_PATH = OUTPUT_PATH + '/timing'
+TIMING_FILE_PATH = f'{OUTPUT_PATH}/timing'
 # Path of source/ip list files for implemetation or simulation
 # Would add to vivado peroject
 FILE_LIST_PATH = OUTPUT_PATH
 
 # Path for the simulation
 # Path of the list files for simulation
-SIM_FILE_LIST_PATH = DNN2FPGA_ROOT + '/sim/'
+SIM_FILE_LIST_PATH = f'{DNN2FPGA_ROOT}/sim/'
 # Path of the data files for simulation
-DUMP_BLOB_DATA_PATH = DNN2FPGA_ROOT + '/sim/data'
+DUMP_BLOB_DATA_PATH = f'{DNN2FPGA_ROOT}/sim/data'
 
 # Settings for the IP cores generation
 # project name for generate IP cores
 IP_PROJECT_NAME = 'ips_prj'
 # Path of ips project
-IP_PROJECT_PATH =  OUTPUT_PATH + '/' + IP_PROJECT_NAME
+IP_PROJECT_PATH = f'{OUTPUT_PATH}/{IP_PROJECT_NAME}'
 # Path of set ips cores
-IP_FILE_PATH = IP_PROJECT_PATH + '/' + IP_PROJECT_NAME + '.srcs' + '/sources_1/ip'
+IP_FILE_PATH = f'{IP_PROJECT_PATH}/{IP_PROJECT_NAME}.srcs/sources_1/ip'
 
 # ****************************************************************
 # AccDNN I/O settings

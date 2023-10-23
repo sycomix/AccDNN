@@ -58,15 +58,18 @@ class Layer(object):
 
     def ios_generate(self, batch_size=1, ddr_data_width=DDR_DATA_WIDTH):
         #input and output signal
-        self.ios['blob_din'] = tuple([self.input_width * self.input_dw * batch_size, 'input'])
-        self.ios['blob_din_en'] = tuple([1, 'input'])
-        self.ios['blob_din_rdy'] = tuple([1, 'output'])
-        self.ios['blob_din_eop'] = tuple([1, 'input'])
-       
-        self.ios['blob_dout'] =  tuple([self.output_width * self.output_dw * batch_size, 'output'])
-        self.ios['blob_dout_en'] = tuple([1, 'output'])
-        self.ios['blob_dout_rdy'] = tuple([1, 'input'])
-        self.ios['blob_dout_eop'] = tuple([1, 'output'])
+        self.ios['blob_din'] = self.input_width * self.input_dw * batch_size, 'input'
+        self.ios['blob_din_en'] = 1, 'input'
+        self.ios['blob_din_rdy'] = 1, 'output'
+        self.ios['blob_din_eop'] = 1, 'input'
+
+        self.ios['blob_dout'] = (
+            self.output_width * self.output_dw * batch_size,
+            'output',
+        )
+        self.ios['blob_dout_en'] = 1, 'output'
+        self.ios['blob_dout_rdy'] = 1, 'input'
+        self.ios['blob_dout_eop'] = 1, 'output'
 
     def wires_generate(self, batch_size=1):
         pass
@@ -88,28 +91,27 @@ class Layer(object):
 
         # signal for fifo before layer out if necessary
         if self.insert_fifo is True:
-            self.wires['blob_dout_fifo'] = tuple([self.ios['blob_dout'][0], 'wire'])
-            self.wires['blob_dout_en_fifo'] = tuple([1, 'wire'])
-            self.wires['blob_dout_eop_fifo'] = tuple([1, 'wire'])
+            self.wires['blob_dout_fifo'] = self.ios['blob_dout'][0], 'wire'
+            self.wires['blob_dout_en_fifo'] = 1, 'wire'
+            self.wires['blob_dout_eop_fifo'] = 1, 'wire'
 
-        file_path_name = VERILOG_FILE_PATH + '/' + self.layer_name + '_layer.v'
-        fd = open(file_path_name, 'w')
-        code_str = ''
-        code_str += code_module_header_gen(self.layer_name + '_layer', self.ios)
-        code_str += self.code_interconnector_gen()
-        code_str += self.code_controller_gen()
-        code_str += self.code_ram_gen(batch_size)
-        code_str += self.code_operator_gen(batch_size)
+        file_path_name = f'{VERILOG_FILE_PATH}/{self.layer_name}_layer.v'
+        with open(file_path_name, 'w') as fd:
+            code_str = ''
+            code_str += code_module_header_gen(f'{self.layer_name}_layer', self.ios)
+            code_str += self.code_interconnector_gen()
+            code_str += self.code_controller_gen()
+            code_str += self.code_ram_gen(batch_size)
+            code_str += self.code_operator_gen(batch_size)
 
-        if self.insert_fifo is True:
-            fifo_width = self.ios['blob_dout'][0]
-            code_str += interlayer_fifo_gen(fifo_width, self.fifo_depth)
-       
-        code_str += 'endmodule\n'
+            if self.insert_fifo is True:
+                fifo_width = self.ios['blob_dout'][0]
+                code_str += interlayer_fifo_gen(fifo_width, self.fifo_depth)
 
-        #print code_str
-        fd.write(code_str)
-        fd.close() 
+            code_str += 'endmodule\n'
+
+            #print code_str
+            fd.write(code_str) 
 
     def code_operator_gen(self, batch_size=1):
         pass
@@ -126,28 +128,20 @@ class Layer(object):
 
         #add the lib source file
         if self.operator_name == 'vector_muladd':
-            lib_source_file_list.append(self.operator_name + '.sv')
+            lib_source_file_list.append(f'{self.operator_name}.sv')
         else:
-            lib_source_file_list.append(self.operator_name + '.v')
-        lib_source_file_list.append(self.controller_name + '.v')
+            lib_source_file_list.append(f'{self.operator_name}.v')
+        lib_source_file_list.append(f'{self.controller_name}.v')
 
         if self.insert_fifo is True:
             lib_source_file_list.append('interlayer_sync_fifo.v')
 
         #verilog source file list
-        source_file_list = []
-        source_file_list.append(self.layer_name + '_layer.v')
-
-        #ip file list
-        ip_file_list = []
-        for ip_inst in self.ips:
-            ip_file_list.append(ip_inst.get('module_name'))
-
+        source_file_list = [f'{self.layer_name}_layer.v']
+        ip_file_list = [ip_inst.get('module_name') for ip_inst in self.ips]
         return lib_source_file_list, lib_ip_file_list, source_file_list, ip_file_list
 
 
     def profile(self):
         pass       
 
-if __name__  == '__main__':
-    pass

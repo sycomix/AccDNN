@@ -30,11 +30,11 @@ def get_actual_pf(target_pf, avaliable_pfs):
             return pf_candidate
 
 def get_avaliable_pfs(num, max_pf):
-    avaliable_pfs = []
-    for pf_candidate in total_avaliable_pfs:
-        if (pf_candidate <= min(max_pf, num)) and (num % pf_candidate == 0):
-            avaliable_pfs.append(pf_candidate)
-    return avaliable_pfs
+    return [
+        pf_candidate
+        for pf_candidate in total_avaliable_pfs
+        if (pf_candidate <= min(max_pf, num)) and (num % pf_candidate == 0)
+    ]
 
 def optim_cpf_kpf(cpf, kpf, max_kpf):
     if cpf/kpf <= 2 or kpf == max_kpf:

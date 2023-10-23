@@ -9,16 +9,19 @@ import argparse
 import copy
 
 def find_weight(name, shape, key, var_dic):
-    for k, v in var_dic.items():
-        if k.startswith(name) and v.shape == shape and (key in k):
-            return v
-    return None
+    return next(
+        (
+            v
+            for k, v in var_dic.items()
+            if k.startswith(name) and v.shape == shape and (key in k)
+        ),
+        None,
+    )
 
 def get_layer_info(layer_list, layer_name):
-    for object_ in layer_list:
-        if object_.name == layer_name:
-            return object_
-    return None
+    return next(
+        (object_ for object_ in layer_list if object_.name == layer_name), None
+    )
 
 def tf2caffe(meta, ckp, net_file, output_model):
     saver = tf.train.import_meta_graph(meta)
@@ -27,14 +30,10 @@ def tf2caffe(meta, ckp, net_file, output_model):
         train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
         train_vars.extend(tf.get_collection(tf.GraphKeys.MODEL_VARIABLES))
         train_vars.extend(tf.global_variables())
-        var_dic = {}
-        for v in train_vars:
-            var_dic[v.name] = v.eval()
-            #print v.name, var_dic[v.name].shape
-
+        var_dic = {v.name: v.eval() for v in train_vars}
     net_config = caffe.proto.caffe_pb2.NetParameter()
     layer_list = readProtoFile(net_file, net_config).layer
-         
+
     net = caffe.Net(net_file, caffe.TEST)
     for k, v in net.params.items():
         layer_info = get_layer_info(layer_list, k)
@@ -45,20 +44,20 @@ def tf2caffe(meta, ckp, net_file, output_model):
             # use layer name, weights shape to find the corresponding weight from tensor vars
             weights = find_weight(k, tf_kernel_shape, 'kernel:0', var_dic)
             if weights is None:
-                raise Exception('Layer [%s]: weights not found.'%layer_info.name)
+                raise Exception(f'Layer [{layer_info.name}]: weights not found.')
             # transpose from H*W*C*K to K*C*H*W
             v[0].data[...] = weights.transpose(3, 2, 0, 1)
             if layer_info.convolution_param.bias_term:
                 bias = find_weight(k, v[1].data.shape, 'bias:0', var_dic)
                 if bias is None:
-                    raise Exception('Layer [%s]: bias not found.'%layer_info.name)
+                    raise Exception(f'Layer [{layer_info.name}]: bias not found.')
                 v[1].data[...] = bias
         elif layer_info.type == 'InnerProduct':
             kernel_shape = v[0].data.shape
             tf_kernel_shape = (kernel_shape[1], kernel_shape[0])
             weights = find_weight(k, tf_kernel_shape, 'kernel:0', var_dic)
             if weights is None:
-                raise Exception('Layer [%s]: weights not found.'%layer_info.name)
+                raise Exception(f'Layer [{layer_info.name}]: weights not found.')
             # check if need shape
             if len(net.blobs[layer_info.bottom[0]].data.shape) > 2:
                 input_shape = net.blobs[layer_info.bottom[0]].data.shape[1:]
@@ -70,16 +69,16 @@ def tf2caffe(meta, ckp, net_file, output_model):
             if layer_info.inner_product_param.bias_term:
                 bias = find_weight(k, v[1].data.shape, 'bias:0', var_dic)
                 if bias is None:
-                    raise Exception('Layer [%s]: bias not found.'%layer_info.name)
+                    raise Exception(f'Layer [{layer_info.name}]: bias not found.')
                 v[1].data[...] = bias
         elif layer_info.type == 'BatchNorm':
             prefix = layer_info.name.split('_')[0]
             moving_mean = find_weight(prefix, v[0].data.shape, 'moving_mean:0', var_dic)
             if moving_mean is None:
-                raise Exception('Layer [%s]: moving_mean data not found.'%layer_info.name)
+                raise Exception(f'Layer [{layer_info.name}]: moving_mean data not found.')
             moving_variance = find_weight(prefix, v[1].data.shape, 'moving_variance:0', var_dic)
             if moving_variance is None:
-                raise Exception('Layer [%s]: moving_variance data not found.'%layer_info.name)
+                raise Exception(f'Layer [{layer_info.name}]: moving_variance data not found.')
             v[0].data[...] = moving_mean
             v[1].data[...] = moving_variance
             v[2].data[...] = 1.0
@@ -87,17 +86,19 @@ def tf2caffe(meta, ckp, net_file, output_model):
             prefix = layer_info.name.split('_')[0]
             gamma = find_weight(prefix, v[0].data.shape, 'gamma:0', var_dic)
             if gamma is None:
-                raise Exception('Layer [%s]: gamma data not found.'%layer_info.name)
+                raise Exception(f'Layer [{layer_info.name}]: gamma data not found.')
             beta = find_weight(prefix, v[1].data.shape, 'beta:0', var_dic)
             if beta is None:
-                raise Exception('Layer [%s]: beta data not found.'%layer_info.name)
+                raise Exception(f'Layer [{layer_info.name}]: beta data not found.')
             if len(v) < 2:
-                raise Exception('Layer [%s]: please set bias to true in Scale layer for batch normlization.'%layer_info.name)
+                raise Exception(
+                    f'Layer [{layer_info.name}]: please set bias to true in Scale layer for batch normlization.'
+                )
             v[0].data[...] = gamma
             v[1].data[...] = beta
         else:
-            raise Exception('Layer type [%s] is not supported.'%layer_info.type)
-                   
+            raise Exception(f'Layer type [{layer_info.type}] is not supported.')
+
     net.save(output_model)
 
 if __name__ == '__main__':

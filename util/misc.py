@@ -5,22 +5,17 @@ from settings import *
 import ConfigParser
 
 def get_operator_name(operator_type, channel_parall_factor):
-    if operator_type == 'vector_muladd':
-        operator_name = operator_type + str(channel_parall_factor)
-    else:
-        operator_name = operator_type
-    return operator_name
+    return (
+        operator_type + str(channel_parall_factor)
+        if operator_type == 'vector_muladd'
+        else operator_type
+    )
 
 def get_controller_name(layer_type, operator_type):
-    if layer_type == 'Convolution' or layer_type == 'InnerProduct':
+    if layer_type in ['Convolution', 'InnerProduct']:
         return 'controller'
     elif layer_type == 'Pooling':
-        if operator_type == 'vector_max':
-            return 'controller_a'
-        elif operator_type == 'vector_ave':
-            return 'controller_b'
-        else:
-            return 'controller_a'
+        return 'controller_b' if operator_type == 'vector_ave' else 'controller_a'
     else:
         return 'controller_a'
 
@@ -30,12 +25,7 @@ def get_file_dependence(operator_name, dependence_type):
                     else OPERATOR_CONF_FILE_PATH
     cf.read(operator_file)
     dependence = cf.get(operator_name, dependence_type)
-    if dependence == "":
-        file_list = []
-    else:
-        #add the dependence file
-        file_list = dependence.split(',')
-    return file_list
+    return [] if dependence == "" else dependence.split(',')
 
 def get_operator_delay(operator_name, cpf=1, bn=None):
     real_operator_name = operator_name + str(cpf) if operator_name == 'vector_muladd' else operator_name

@@ -34,16 +34,24 @@ class Model(caffe.Net):
         self.layer_info_list = parse_object.layer
     
     def get_layer_info(self, layer_name):
-        for object_ in self.layer_info_list:
-            if object_.name == layer_name:
-                return object_
-        return None
+        return next(
+            (
+                object_
+                for object_ in self.layer_info_list
+                if object_.name == layer_name
+            ),
+            None,
+        )
 
     def get_inst_by_layer_name(self, layer_name):
-        for module_inst in self.modules:
-            if module_inst.layer_name == layer_name:
-                return module_inst
-        return None
+        return next(
+            (
+                module_inst
+                for module_inst in self.modules
+                if module_inst.layer_name == layer_name
+            ),
+            None,
+        )
         
     def parser(self, optim_file=None):
         self.modules = []
@@ -157,10 +165,14 @@ class Model(caffe.Net):
         ops_list = []
         data_reuse_list = []
         for moule_inst in self.modules:
-            if moule_inst.layer_type == 'Convolution' or moule_inst.layer_type == 'InnerProduct' or \
-               moule_inst.layer_type == 'ConvolutionRistretto' or moule_inst.layer_type == 'FcRistretto':
+            if moule_inst.layer_type in [
+                'Convolution',
+                'InnerProduct',
+                'ConvolutionRistretto',
+                'FcRistretto',
+            ]:
                 ops = moule_inst.output_shape[0] * moule_inst.output_shape[1] * moule_inst.output_shape[2] * \
-                      moule_inst.kernel_shape[0] * moule_inst.kernel_shape[1] * moule_inst.kernel_shape[2]
+                          moule_inst.kernel_shape[0] * moule_inst.kernel_shape[1] * moule_inst.kernel_shape[2]
                 ops_list.append(float(ops))
                 # the weight data reuse equal the height of the output shape
                 data_reuse_list.append(float(moule_inst.param_ww)/float(moule_inst.output_shape[1]))
@@ -183,20 +195,20 @@ class Model(caffe.Net):
             total_pfs = 0
             for module_inst in self.modules:
                 if module_inst.layer_type == 'Convolution' or module_inst.layer_type == 'InnerProduct' or \
-                   moule_inst.layer_type == 'ConvolutionRistretto' or moule_inst.layer_type == 'FcRistretto':
+                       moule_inst.layer_type == 'ConvolutionRistretto' or moule_inst.layer_type == 'FcRistretto':
                     pf = pf_list[pf_index]
                     module_inst.cpf, module_inst.kpf = get_conv_pfs(pf, module_inst.input_shape[0], module_inst.kernel_num)
                     pf_index += 1
                     total_pfs += module_inst.cpf * module_inst.kpf
                 elif module_inst.layer_type == 'Pooling':
                     module_inst.kpf = get_pooling_pf(module_inst.input_shape[0], module_inst.input_shape[0])
-                
+
                 # for the last module, no following layers
                 if module_index < (len(self.modules) - 1):
                     self.modules[module_index + 1].input_width = module_inst.kpf
                     self.modules[module_index + 1].rm_wr_stride = module_inst.get_output_stride()
                 module_index += 1
-    
+
             blks_for_wbm = 0
             blks_for_rm = 0
             for module_inst in self.modules:
@@ -205,7 +217,9 @@ class Model(caffe.Net):
                 blks_for_wbm += module_inst.wm_blks + module_inst.bm_blks
                 blks_for_rm += module_inst.rm_blks
             #print int(get_dsps_resource() / total_pfs), int((get_brams_resource() - blks_for_wbm) / blks_for_rm)
-            controller_dsp = sum([6 if module_inst.params else 2 for module_inst in self.modules])
+            controller_dsp = sum(
+                6 if module_inst.params else 2 for module_inst in self.modules
+            )
             self.batch_size = min(int((get_dsps_resource(res_file) * RESOURCE_THRES - controller_dsp) / total_pfs),
                                   int((get_brams_resource(res_file) * RESOURCE_THRES - blks_for_wbm) / blks_for_rm))
             if self.batch_size > 0:
@@ -233,7 +247,7 @@ class Model(caffe.Net):
                 # parameters, if the next layer is Pooling layer, will use the next next layer.
                 # the bitwidth for BN is always MAX_DW bit, if input for bn is not MAX_DW, scale it to MAX_DW bits
                 self.modules[idx-1].mid_dq = min(self.modules[idx-1].output_dq + (MAX_DW - self.modules[idx-1].output_dw), \
-                                                 self.modules[idx-1].input_dq + self.modules[idx-1].param_wq)
+                                                     self.modules[idx-1].input_dq + self.modules[idx-1].param_wq)
                 if self.modules[idx].layer_type != 'Pooling':
                     self.modules[idx-1].output_dw = self.modules[idx].input_dw
                     self.modules[idx-1].output_dq =  self.modules[idx].input_dq
@@ -245,13 +259,14 @@ class Model(caffe.Net):
                     self.modules[idx].input_dq =  self.modules[idx-1].output_dq
                     self.modules[idx].output_dw =  self.modules[idx].input_dw
                     self.modules[idx].output_dq =  self.modules[idx].input_dq
-      
+
             if self.modules[idx].input_dw != self.modules[idx-1].output_dw or \
-              self.modules[idx].input_dq != self.modules[idx-1].output_dq:
+                  self.modules[idx].input_dq != self.modules[idx-1].output_dq:
                 # if no bn is aggregated, the adjacent layers should have consistent 
                 # quantization parameters
-                raise Exception ('{} layer\'s output width or Q doesn\'t match {} layer\'s input width or Q.'\
-                                 .format(self.modules[idx-1].layer_name, self.modules[idx].layer_name))
+                raise Exception(
+                    f"{self.modules[idx - 1].layer_name} layer\'s output width or Q doesn\'t match {self.modules[idx].layer_name} layer\'s input width or Q."
+                )
  
     def module_summary(self):
         print '\nNeural network structure overview.'
@@ -405,14 +420,23 @@ class Model(caffe.Net):
     def ipcores_gen(self, fpga_type):
         tcl_str = ''
         # To generate the ips cores, we should creat a project first
-        tcl_str += 'set project_name ' + IP_PROJECT_NAME + '\n'
-        tcl_str += 'set project_path ' + IP_PROJECT_PATH + '\n'
-        tcl_str += 'set src_path ' + IP_PROJECT_PATH + '/' + IP_PROJECT_NAME + '.srcs\n'
-        tcl_str += 'set sim_path ' + IP_PROJECT_PATH + '/' + IP_PROJECT_NAME + '.ip_user_files/sim_scripts\n'
+        tcl_str += f'set project_name {IP_PROJECT_NAME}' + '\n'
+        tcl_str += f'set project_path {IP_PROJECT_PATH}' + '\n'
+        tcl_str += f'set src_path {IP_PROJECT_PATH}/{IP_PROJECT_NAME}' + '.srcs\n'
+        tcl_str += (
+            f'set sim_path {IP_PROJECT_PATH}/{IP_PROJECT_NAME}'
+            + '.ip_user_files/sim_scripts\n'
+        )
         if fpga_type:
-            tcl_str += 'create_project $project_name $project_path -part ' + fpga_type + '\n'
+            tcl_str += (
+                f'create_project $project_name $project_path -part {fpga_type}'
+                + '\n'
+            )
         else:
-            tcl_str += 'create_project $project_name $project_path -part ' + XILINX_FPGA_TYPE + '\n'
+            tcl_str += (
+                f'create_project $project_name $project_path -part {XILINX_FPGA_TYPE}'
+                + '\n'
+            )
 
         # Generate ips for each layer
         self.ips = []
@@ -421,17 +445,16 @@ class Model(caffe.Net):
         # Generate the ips core tcl file
         tcl_str += ipcore_tcl_gen(self.ips)
 
-        file_path_name = TCL_FILE_PATH + '/' + 'ips.tcl'
-        fd = open(file_path_name, 'w')
-        fd.write(tcl_str)
-        fd.close()
+        file_path_name = f'{TCL_FILE_PATH}/ips.tcl'
+        with open(file_path_name, 'w') as fd:
+            fd.write(tcl_str)
 
     def file_list_gen(self):
         self.lib_source_file_set = set([])
         self.lib_ip_file_set = set([])
         self.source_file_set = set([])
         self.ip_file_set = set([])
-     
+
         #generate file set for lib or souce/ip files 
         for module_inst in self.modules:
             lib_source_file_list, lib_ip_file_list, source_file_list, ip_file_list = module_inst.get_file_list()
@@ -439,7 +462,7 @@ class Model(caffe.Net):
             self.lib_ip_file_set.update(lib_ip_file_list)
             self.source_file_set.update(source_file_list)
             self.ip_file_set.update(ip_file_list)
-        
+
         #self.lib_source_file_set.update(utility.get_file_dependence('controller', 'source_dependence'))
         #self.lib_ip_file_set.update(utility.get_file_dependence('controller', 'ip_dependence'))
         #self.lib_source_file_set.update(['controller.v'])
@@ -451,7 +474,7 @@ class Model(caffe.Net):
         self.lib_source_file_set.update(['busm2n.v'])
         #ddr read delay for better timing
         self.lib_source_file_set.update(['ddr_read_delay.v'])
-       
+
         #collect all the files for Vivado project
         file_path_list = []
         sim_file_list = []
@@ -459,29 +482,29 @@ class Model(caffe.Net):
         file_list_str = ''
         #collect lib souce file
         for file_inst in self.lib_source_file_set:
-            file_path = LIB_SOURCE_FILE_PATH + '/' + file_inst
+            file_path = f'{LIB_SOURCE_FILE_PATH}/{file_inst}'
             file_path_list.append(file_path)
             sim_file_list.append(file_path)
             imp_file_list.append(file_path)
             file_list_str += 'verilog work' + " \"acc/" + file_inst + "\"\n"
         #collect lib ip file
         for file_inst in self.lib_ip_file_set:
-            file_path = LIB_IP_FILE_PATH + '/' + file_inst + '/' + file_inst + '.xci'
-            sim_file = LIB_IP_FILE_PATH + '/' + file_inst + '/' + file_inst + '_funcsim.v'
+            file_path = f'{LIB_IP_FILE_PATH}/{file_inst}/{file_inst}.xci'
+            sim_file = f'{LIB_IP_FILE_PATH}/{file_inst}/{file_inst}_funcsim.v'
             file_path_list.append(file_path)
             sim_file_list.append(sim_file)
             file_list_str += 'verilog work' + " \"cores/" + file_inst + '/' + file_inst + '.xci' + "\"\n"
         #collect source file
         for file_inst in self.source_file_set:
-            file_path = VERILOG_FILE_PATH + '/' + file_inst
+            file_path = f'{VERILOG_FILE_PATH}/{file_inst}'
             file_path_list.append(file_path)
             sim_file_list.append(file_path)
             imp_file_list.append(file_path)
             file_list_str += 'verilog work' + " \"acc/" + file_inst + "\"\n"
         #collect ip file
         for file_inst in self.ip_file_set:
-            file_path = IP_FILE_PATH + '/' + file_inst + '/' + file_inst + '.xci'
-            sim_file = IP_FILE_PATH + '/' + file_inst + '/sim/' + file_inst + '.v'
+            file_path = f'{IP_FILE_PATH}/{file_inst}/{file_inst}.xci'
+            sim_file = f'{IP_FILE_PATH}/{file_inst}/sim/{file_inst}.v'
             file_path_list.append(file_path)
             sim_file_list.append(sim_file)
             file_list_str += 'verilog work' + " \"cores/" + file_inst + '/' + file_inst + '.xci' + "\"\n"
@@ -490,7 +513,7 @@ class Model(caffe.Net):
         # file_list_str = '' 
         # for file_path_name in file_path_list:
         #    file_list_str += 'verilog work' + " \"" + file_path_name + "\"\n"
-        
+
         sim_file_str = ''
         for file_path_name in sim_file_list:
             sim_file_str += file_path_name + "\n"
@@ -500,21 +523,16 @@ class Model(caffe.Net):
             imp_file_str += file_path_name + "\n"
 
         #output to a file list text  file
-        file_path_name = FILE_LIST_PATH + '/' + 'file_list.txt'
-        fd = open(file_path_name, 'w')
-        fd.write(file_list_str)
-        fd.close()
-
+        file_path_name = f'{FILE_LIST_PATH}/file_list.txt'
+        with open(file_path_name, 'w') as fd:
+            fd.write(file_list_str)
         if SIMULATION_ONLY is True:
-            file_path_name = SIM_FILE_LIST_PATH + '/' + 'sim_file.f'
-            fd = open(file_path_name, 'w')
-            fd.write(sim_file_str)
-            fd.close()
-   
-        file_path_name = FILE_LIST_PATH + '/' + 'imp_file.f'
-        fd = open(file_path_name, 'w')
-        fd.write(imp_file_str)
-        fd.close()
+            file_path_name = f'{SIM_FILE_LIST_PATH}/sim_file.f'
+            with open(file_path_name, 'w') as fd:
+                fd.write(sim_file_str)
+        file_path_name = f'{FILE_LIST_PATH}/imp_file.f'
+        with open(file_path_name, 'w') as fd:
+            fd.write(imp_file_str)
 
 
     
@@ -536,47 +554,39 @@ class Model(caffe.Net):
 
         self.used_dma_channel_num = ddr_dma_index 
 
-        file_path_name = MEM_COE_FILE_PATH + '/' + 'weights.bin'
-        fd = open(file_path_name, 'wb')
-        fd.write(struct.pack('H'*len(weights_array), *weights_array))
-        fd.close()
-
+        file_path_name = f'{MEM_COE_FILE_PATH}/weights.bin'
+        with open(file_path_name, 'wb') as fd:
+            fd.write(struct.pack('H'*len(weights_array), *weights_array))
         weights_array = weights_array.reshape(-1, ddr_data_width / 16)
-        file_path_name = MEM_COE_FILE_PATH + '/' + 'weights_sim.dat'
+        file_path_name = f'{MEM_COE_FILE_PATH}/weights_sim.dat'
         uint16_dump_hex_aligned(file_path_name, weights_array)
 
-        mif_file_str = ''
-        for mif_file in mif_file_list:
-            mif_file_str += mif_file + '\n'
-       
+        mif_file_str = ''.join(mif_file + '\n' for mif_file in mif_file_list)
         if SIMULATION_ONLY is True:
-            file_path_name = SIM_FILE_LIST_PATH + '/' + 'mif_file.f'
-            fd = open(file_path_name, 'w')
-            fd.write(mif_file_str)
-            fd.close()
+            file_path_name = f'{SIM_FILE_LIST_PATH}/mif_file.f'
+            with open(file_path_name, 'w') as fd:
+                fd.write(mif_file_str)
 
     def ios_generate(self, ddr_data_width = DDR_DATA_WIDTH):
-        self.ios = {}
-        # data blob ios
-        self.ios['blob_din'] = tuple([CAPI_DATA_BUS_WIDTH, 'input'])
-        self.ios['blob_din_rdy'] = tuple([1, 'output'])
-        self.ios['blob_din_en'] = tuple([1, 'input'])
-        self.ios['blob_din_eop'] = tuple([1, 'input'])
-
-        self.ios['blob_dout'] =  tuple([CAPI_DATA_BUS_WIDTH, 'output'])
-        self.ios['blob_dout_en'] = tuple([1, 'output'])
-        self.ios['blob_dout_rdy'] = tuple([1, 'input'])
-        self.ios['blob_dout_eop'] = tuple([1, 'output'])
-
+        self.ios = {
+            'blob_din': (CAPI_DATA_BUS_WIDTH, 'input'),
+            'blob_din_rdy': (1, 'output'),
+            'blob_din_en': (1, 'input'),
+            'blob_din_eop': (1, 'input'),
+            'blob_dout': (CAPI_DATA_BUS_WIDTH, 'output'),
+            'blob_dout_en': (1, 'output'),
+            'blob_dout_rdy': (1, 'input'),
+            'blob_dout_eop': (1, 'output'),
+        }
         for i in range(DDR_DMA_ENGINE_NUM):
-            self.ios['ddr_read_req_' + str(i)] = tuple([1, 'output'])
-            self.ios['ddr_read_start_addr_' + str(i)] = tuple([27, 'output'])
-            self.ios['ddr_read_length_' + str(i)] = tuple([27, 'output'])
-            self.ios['ddr_read_ack_' + str(i)] = tuple([1, 'input'])
-            
-        self.ios['ddr_dout'] = tuple([ddr_data_width, 'input'])
-        self.ios['ddr_dout_en'] = tuple([16, 'input'])
-        self.ios['ddr_dout_eop'] = tuple([1, 'input'])
+            self.ios[f'ddr_read_req_{str(i)}'] = 1, 'output'
+            self.ios[f'ddr_read_start_addr_{str(i)}'] = 27, 'output'
+            self.ios[f'ddr_read_length_{str(i)}'] = 27, 'output'
+            self.ios[f'ddr_read_ack_{str(i)}'] = 1, 'input'
+
+        self.ios['ddr_dout'] = ddr_data_width, 'input'
+        self.ios['ddr_dout_en'] = 16, 'input'
+        self.ios['ddr_dout_eop'] = 1, 'input'
         
     def code_gen(self, ddr_data_width=DDR_DATA_WIDTH):
         #generate the code for each layer

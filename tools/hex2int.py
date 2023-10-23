@@ -8,25 +8,17 @@ def compare(hex_file, int_file):
     # Parse the hex file
     data_list = []
     fp = open(hex_file, 'r')
-    line_list = []
-    for line in fp:
-        line_list.append(line.strip())
-    for s in line_list:    
-        data_line = []     
-        for i in xrange(0, len(s), 4):
-            data_line.append(int(s[i:i+4], 16))
+    line_list = [line.strip() for line in fp]
+    for s in line_list:
+        data_line = [int(s[i:i+4], 16) for i in xrange(0, len(s), 4)]
         data_line.reverse()
         data_list.extend(data_line)
     int_array = np.array(data_list, dtype='float32')
     int_array[np.where(int_array >= 32768)] = int_array[np.where(int_array >= 32768)] - 65536
- 
-    data_str = ''
-    for data in int_array:
-        data_str += '%d\n'%(data)
 
-    fd = open(int_file, 'w')
-    fd.write(data_str)
-    fd.close()      
+    data_str = ''.join('%d\n'%(data) for data in int_array)
+    with open(int_file, 'w') as fd:
+        fd.write(data_str)      
    
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

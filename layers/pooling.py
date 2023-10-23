@@ -80,7 +80,6 @@ class Pooling(Layer):
             self.fifo_depth = int(math.ceil(float(access_operator_delay + 1) / float(cycle_per_dout)))
 
     def ips_generate(self):
-        self.ips = []
         #Reshape memory params generate, here we use block memory
         ip_info = {}
         if self.rm_type == 'blk':
@@ -89,29 +88,29 @@ class Pooling(Layer):
         else:
            ip_info['ip_name'] = 'dist_mem_gen'
            ip_info['memory_type'] = 'simple_dual_port_ram'
-        ip_info['module_name'] = self.layer_name + '_rm_ram'
+        ip_info['module_name'] = f'{self.layer_name}_rm_ram'
         ip_info['wr_width'] = self.rm_wr_width
         ip_info['wr_depth'] = self.rm_wr_depth
         ip_info['rd_width'] = self.rm_rd_width
-        self.ips.append(ip_info)
+        self.ips = [ip_info]
         return self.ips
 
     def wires_generate(self, batch_size=1):
         #internal interconnection wire
         self.wires = {}
         for batch_idx in range(batch_size):
-            self.wires['op_data_' + str(batch_idx)] = tuple([self.rm_rd_width, 'wire'])
-        self.wires['rm_wr_en'] = tuple([1, 'wire'])
-        self.wires['rm_wr_addr'] = tuple([self.rm_wr_addr_width, 'wire'])
-        self.wires['rm_rd_addr'] = tuple([self.rm_rd_addr_width, 'wire'])
+            self.wires[f'op_data_{str(batch_idx)}'] = self.rm_rd_width, 'wire'
+        self.wires['rm_wr_en'] = 1, 'wire'
+        self.wires['rm_wr_addr'] = self.rm_wr_addr_width, 'wire'
+        self.wires['rm_rd_addr'] = self.rm_rd_addr_width, 'wire'
 
-        self.wires['op_din_eop'] = tuple([1, 'wire'])
-        self.wires['op_din_en'] = tuple([1, 'wire'])
-        
+        self.wires['op_din_eop'] = 1, 'wire'
+        self.wires['op_din_en'] = 1, 'wire'
+
         for batch_idx in range(batch_size):
             for i in range(self.kpf):
-                wire_name = 'op_dout_' + str(batch_idx) + '_' + str(i)
-                self.wires[wire_name] = tuple([self.output_dw, 'wire'])
+                wire_name = f'op_dout_{str(batch_idx)}_{str(i)}'
+                self.wires[wire_name] = self.output_dw, 'wire'
 
     def code_ram_gen(self, batch_size=1):
         # reshape memory generate
@@ -119,23 +118,75 @@ class Pooling(Layer):
         rm_wr_width = self.input_width * self.input_dw
         for batch_idx in range(batch_size):
             if self.rm_type == 'blk':
-                code_str += self.layer_name + '_rm_ram u_' + self.layer_name + '_rm_ram_' + str(batch_idx) + '(\n' + \
-                        '.clka(clk),\n' + \
-                        '.wea(rm_wr_en),\n' + \
-                        '.addra(rm_wr_addr),\n' + \
-                        '.dina(blob_din[' + str(rm_wr_width * (batch_idx+1) -1) + ':' + str(rm_wr_width * batch_idx)+ ']),\n' + \
-                        '.clkb(clk),\n' + \
-                        '.addrb(rm_rd_addr),\n' + \
-                        '.doutb(op_data_' + str(batch_idx) + '));\n\n'
+                code_str += (
+                    (
+                        (
+                            (
+                                (
+                                    (
+                                        (
+                                            (
+                                                (
+                                                    (
+                                                        f'{self.layer_name}_rm_ram u_{self.layer_name}_rm_ram_{str(batch_idx)}'
+                                                        + '(\n'
+                                                        + '.clka(clk),\n'
+                                                    )
+                                                    + '.wea(rm_wr_en),\n'
+                                                )
+                                                + '.addra(rm_wr_addr),\n'
+                                            )
+                                            + '.dina(blob_din['
+                                        )
+                                        + str(rm_wr_width * (batch_idx + 1) - 1)
+                                        + ':'
+                                    )
+                                    + str(rm_wr_width * batch_idx)
+                                    + ']),\n'
+                                )
+                                + '.clkb(clk),\n'
+                            )
+                            + '.addrb(rm_rd_addr),\n'
+                        )
+                        + '.doutb(op_data_'
+                    )
+                    + str(batch_idx)
+                    + '));\n\n'
+                )
             else:
-                code_str += self.layer_name + '_rm_ram u_' + self.layer_name + '_rm_ram_' + str(batch_idx) + '(\n' + \
-                        '.clk(clk),\n' + \
-                        '.we(rm_wr_en),\n' + \
-                        '.a(rm_wr_addr),\n' + \
-                        '.d(blob_din[' + str(rm_wr_width * (batch_idx+1) -1) + ':' + str(rm_wr_width * batch_idx)+ ']),\n' + \
-                        '.dpra(rm_rd_addr),\n' + \
-                        '.dpo(op_data_' + str(batch_idx) + '));\n\n'
- 
+                code_str += (
+                    (
+                        (
+                            (
+                                (
+                                    (
+                                        (
+                                            (
+                                                (
+                                                    f'{self.layer_name}_rm_ram u_{self.layer_name}_rm_ram_{str(batch_idx)}'
+                                                    + '(\n'
+                                                    + '.clk(clk),\n'
+                                                )
+                                                + '.we(rm_wr_en),\n'
+                                            )
+                                            + '.a(rm_wr_addr),\n'
+                                        )
+                                        + '.d(blob_din['
+                                    )
+                                    + str(rm_wr_width * (batch_idx + 1) - 1)
+                                    + ':'
+                                )
+                                + str(rm_wr_width * batch_idx)
+                                + ']),\n'
+                            )
+                            + '.dpra(rm_rd_addr),\n'
+                        )
+                        + '.dpo(op_data_'
+                    )
+                    + str(batch_idx)
+                    + '));\n\n'
+                )
+
         return code_str
 
     def code_controller_gen(self):
@@ -190,22 +241,90 @@ class Pooling(Layer):
         code_str = ''
         for batch_idx in range(batch_size):
             for i in range(self.kpf):
-                code_str += self.operator_name + ' #(' + \
-                        '.RELU('+ str(self.hasrelu)+'),\n' + \
-                        '.DIN_W('+ str(self.input_dw) + '),\n' + \
-                        '.Q(' + str(WQ) + '))\n' + \
-                        'u_' + self.operator_name + '_' + str(batch_idx) + '_' + str(i) + '(\n' + \
-                        '.clk(clk),\n' + \
-                        '.rst(rst),\n' + \
-                        '.op_din_en(op_din_en),\n' + \
-                        '.op_din_eop(op_din_eop),\n' + \
-                        '.op_din(op_data_'+str(batch_idx)+'['+str(self.input_dw*(i+1)-1)+':'+str(self.input_dw * i) + ']),\n' + \
-                        '.op_dout(op_dout_' + str(batch_idx) + '_' + str(i) + '));\n\n'
+                code_str += (
+                    (
+                        (
+                            (
+                                (
+                                    (
+                                        (
+                                            (
+                                                (
+                                                    (
+                                                        (
+                                                            (
+                                                                (
+                                                                    (
+                                                                        (
+                                                                            (
+                                                                                (
+                                                                                    (
+                                                                                        (
+                                                                                            (
+                                                                                                (
+                                                                                                    f'{self.operator_name} #(.RELU({str(self.hasrelu)}'
+                                                                                                    + '),\n'
+                                                                                                )
+                                                                                                + '.DIN_W('
+                                                                                            )
+                                                                                            + str(
+                                                                                                self.input_dw
+                                                                                            )
+                                                                                            + '),\n'
+                                                                                        )
+                                                                                        + '.Q('
+                                                                                    )
+                                                                                    + str(
+                                                                                        WQ
+                                                                                    )
+                                                                                    + '))\n'
+                                                                                )
+                                                                                + 'u_'
+                                                                            )
+                                                                            + self.operator_name
+                                                                        )
+                                                                        + '_'
+                                                                    )
+                                                                    + str(
+                                                                        batch_idx
+                                                                    )
+                                                                    + '_'
+                                                                )
+                                                                + str(i)
+                                                                + '(\n'
+                                                            )
+                                                            + '.clk(clk),\n'
+                                                        )
+                                                        + '.rst(rst),\n'
+                                                    )
+                                                    + '.op_din_en(op_din_en),\n'
+                                                )
+                                                + '.op_din_eop(op_din_eop),\n'
+                                            )
+                                            + '.op_din(op_data_'
+                                        )
+                                        + str(batch_idx)
+                                        + '['
+                                    )
+                                    + str(self.input_dw * (i + 1) - 1)
+                                    + ':'
+                                )
+                                + str(self.input_dw * i)
+                                + ']),\n'
+                            )
+                            + '.op_dout(op_dout_'
+                        )
+                        + str(batch_idx)
+                        + '_'
+                    )
+                    + str(i)
+                    + '));\n\n'
+                )
 
         code_str += 'assign blob_dout = {' if self.insert_fifo is False else 'assign blob_dout_fifo = {'
         for batch_idx in range(batch_size):
             for i in range(self.kpf):
-                code_str += 'op_dout_' + str(batch_size - 1 - batch_idx) + '_' + str(self.kpf - 1 - i) + ','
+                code_str += f'op_dout_{str(batch_size - 1 - batch_idx)}_{str(self.kpf - 1 - i)},'
         code_str = code_str[:-1] #remove the last ','
         code_str += '};\n\n'
 
@@ -234,5 +353,3 @@ class Pooling(Layer):
         self.ddr_bandwidth = 0.0
 
 
-if __name__  == '__main__':
-    pass

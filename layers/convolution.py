@@ -208,132 +208,142 @@ class Convolution(Layer):
             return [], [wm_mif_file_path_name, bm_mif_file_path_name]
 
     def ips_generate(self):
-        self.ips = []
         #Reshape memory params generate, here we use block memory
-        ip_info = {}
-        ip_info['ip_name'] = 'blk_mem_gen'
-        ip_info['module_name'] = self.layer_name + '_rm_ram'
-        ip_info['memory_type'] = 'Simple_Dual_Port_RAM'
-        ip_info['wr_width'] = self.rm_wr_width
-        ip_info['wr_depth'] = self.rm_wr_depth
-        ip_info['rd_width'] = self.rm_rd_width
-        self.ips.append(ip_info)
-
+        ip_info = {
+            'ip_name': 'blk_mem_gen',
+            'module_name': f'{self.layer_name}_rm_ram',
+            'memory_type': 'Simple_Dual_Port_RAM',
+            'wr_width': self.rm_wr_width,
+            'wr_depth': self.rm_wr_depth,
+            'rd_width': self.rm_rd_width,
+        }
+        self.ips = [ip_info]
+        ip_info = {'ip_name': 'blk_mem_gen'}
+        ip_info['module_name'] = f'{self.layer_name}_wm_ram'
         if self.wm_hier_enable is True:
-            ip_info = {}
-            ip_info['ip_name'] = 'blk_mem_gen'
-            ip_info['module_name'] = self.layer_name + '_wm_ram'
             ip_info['memory_type'] = 'Simple_Dual_Port_RAM'
             ip_info['wr_width'] = self.wm_wr_width
             ip_info['wr_depth'] = self.wm_wr_depth
             ip_info['rd_width'] = self.wm_rd_width
-            self.ips.append(ip_info)
         else:
-            ip_info = {}
-            ip_info['ip_name'] = 'blk_mem_gen'
-            ip_info['module_name'] = self.layer_name + '_wm_ram'
             ip_info['memory_type'] = 'Single_Port_ROM'
             ip_info['rd_width'] = self.wm_rd_width
             ip_info['rd_depth'] = self.wm_rd_depth
             ip_info['coe_path'] = '../../../../../coe/' + '/' + ip_info['module_name'] + '.coe'
-            self.ips.append(ip_info)            
-
-        ip_info = {}
-        ip_info['ip_name'] = 'blk_mem_gen'
-        ip_info['module_name'] = self.layer_name + '_bm_ram'
+        self.ips.append(ip_info)
+        ip_info = {'ip_name': 'blk_mem_gen'}
+        ip_info['module_name'] = f'{self.layer_name}_bm_ram'
         ip_info['memory_type'] = 'Single_Port_ROM'
         ip_info['rd_width'] = self.bm_rd_width
         ip_info['rd_depth'] = self.bm_rd_depth
         ip_info['coe_path'] = '../../../../../coe/' + '/' + ip_info['module_name'] + '.coe'
         self.ips.append(ip_info)
-        
+
         return self.ips
 
     def ios_generate(self, batch_size=1, ddr_data_width=DDR_DATA_WIDTH):
         #input and output signal
-        self.ios['blob_din'] = tuple([self.input_width * self.input_dw * batch_size, 'input'])
-        self.ios['blob_din_en'] = tuple([1, 'input'])
-        self.ios['blob_din_rdy'] = tuple([1, 'output'])
-        self.ios['blob_din_eop'] = tuple([1, 'input'])
-       
-        self.ios['blob_dout'] =  tuple([self.output_width * self.output_dw * batch_size, 'output'])
-        self.ios['blob_dout_en'] = tuple([1, 'output'])
-        self.ios['blob_dout_rdy'] = tuple([1, 'input'])
-        self.ios['blob_dout_eop'] = tuple([1, 'output'])
+        self.ios['blob_din'] = self.input_width * self.input_dw * batch_size, 'input'
+        self.ios['blob_din_en'] = 1, 'input'
+        self.ios['blob_din_rdy'] = 1, 'output'
+        self.ios['blob_din_eop'] = 1, 'input'
+
+        self.ios['blob_dout'] = (
+            self.output_width * self.output_dw * batch_size,
+            'output',
+        )
+        self.ios['blob_dout_en'] = 1, 'output'
+        self.ios['blob_dout_rdy'] = 1, 'input'
+        self.ios['blob_dout_eop'] = 1, 'output'
 
         if self.wm_hier_enable is True:
             # DMA interface for weights memory
-            self.ios['dma_engineer_req'] = tuple([1, 'output'])
-            self.ios['dma_engineer_ack'] = tuple([1, 'input'])
-            self.ios['dma_engineer_dout_en'] = tuple([1, 'input'])
-            self.ios['dma_engineer_dout'] = tuple([ddr_data_width, 'input'])
-            self.ios['dma_engineer_dout_eop'] = tuple([1, 'input'])
-            self.ios['dma_engineer_start_addr'] = tuple([27, 'output'])
-            self.ios['dma_engineer_length'] = tuple([27, 'output'])
+            self.ios['dma_engineer_req'] = 1, 'output'
+            self.ios['dma_engineer_ack'] = 1, 'input'
+            self.ios['dma_engineer_dout_en'] = 1, 'input'
+            self.ios['dma_engineer_dout'] = ddr_data_width, 'input'
+            self.ios['dma_engineer_dout_eop'] = 1, 'input'
+            self.ios['dma_engineer_start_addr'] = 27, 'output'
+            self.ios['dma_engineer_length'] = 27, 'output'
         
     def wires_generate(self, batch_size=1):
         #internal interconnection wire
         self.wires = {}
         for batch_idx in range(batch_size):
-            self.wires['op_data_' + str(batch_idx)] = tuple([self.rm_rd_width, 'wire'])
-        self.wires['rm_wr_en'] = tuple([1, 'wire'])
-        self.wires['rm_wr_addr'] = tuple([self.rm_wr_addr_width, 'wire'])
-        self.wires['rm_rd_addr'] = tuple([self.rm_rd_addr_width, 'wire'])
+            self.wires[f'op_data_{str(batch_idx)}'] = self.rm_rd_width, 'wire'
+        self.wires['rm_wr_en'] = 1, 'wire'
+        self.wires['rm_wr_addr'] = self.rm_wr_addr_width, 'wire'
+        self.wires['rm_rd_addr'] = self.rm_rd_addr_width, 'wire'
 
         if self.wm_hier_enable is True:
-            self.wires['double_buf_wr_en'] = tuple([1, 'wire'])
-            self.wires['double_buf_wr_addr'] = tuple([self.wm_wr_addr_width, 'wire'])
-        
-        self.wires['double_buf_rd_addr'] = tuple([self.wm_rd_addr_width, 'wire'])
-        
-        self.wires['op_weight'] = tuple([self.wm_rd_width, 'wire'])
-        self.wires['bm_rd_addr'] = tuple([self.bm_rd_addr_width, 'wire'])
-        self.wires['op_bias'] = tuple([self.bm_rd_width, 'wire'])
+            self.wires['double_buf_wr_en'] = 1, 'wire'
+            self.wires['double_buf_wr_addr'] = self.wm_wr_addr_width, 'wire'
 
-        self.wires['op_din_eop'] = tuple([1, 'wire'])
-        self.wires['op_din_en'] = tuple([1, 'wire'])
+        self.wires['double_buf_rd_addr'] = self.wm_rd_addr_width, 'wire'
+
+        self.wires['op_weight'] = self.wm_rd_width, 'wire'
+        self.wires['bm_rd_addr'] = self.bm_rd_addr_width, 'wire'
+        self.wires['op_bias'] = self.bm_rd_width, 'wire'
+
+        self.wires['op_din_eop'] = 1, 'wire'
+        self.wires['op_din_en'] = 1, 'wire'
 
         instance_num = self.kpf if self.dsp_split is False else self.kpf/2
         data_channel_num = 2 if self.dsp_split is True else 1
         for batch_idx in range(batch_size):  
             for i in range(instance_num):
-                wire_name = 'op_dout_' + str(batch_idx) + '_' + str(i)
-                self.wires[wire_name] = tuple([self.output_dw * data_channel_num, 'wire']) 
+                wire_name = f'op_dout_{str(batch_idx)}_{str(i)}'
+                self.wires[wire_name] = self.output_dw * data_channel_num, 'wire' 
 
     def code_ram_gen(self, batch_size=1):
-        # reshape memory generate
-        code_str = ''
         rm_wr_width = self.input_width * self.input_dw
-        for batch_idx in range(batch_size):
-            code_str += self.layer_name + '_rm_ram u_' + self.layer_name + '_rm_ram_' + str(batch_idx) +'(\n' + \
-                    '.clka(clk),\n' + \
-                    '.wea(rm_wr_en),\n' + \
-                    '.addra(rm_wr_addr),\n' + \
-                    '.dina(blob_din[' + str(rm_wr_width * (batch_idx + 1)-1)+':'+ str(rm_wr_width * batch_idx)+ ']),\n' + \
-                    '.clkb(clk),\n' + \
-                    '.addrb(rm_rd_addr),\n' + \
-                    '.doutb(op_data_' + str(batch_idx) + '));\n\n'
-
+        code_str = ''.join(
+            f'{self.layer_name}_rm_ram u_{self.layer_name}_rm_ram_{str(batch_idx)}'
+            + '(\n'
+            + '.clka(clk),\n'
+            + '.wea(rm_wr_en),\n'
+            + '.addra(rm_wr_addr),\n'
+            + '.dina(blob_din['
+            + str(rm_wr_width * (batch_idx + 1) - 1)
+            + ':'
+            + str(rm_wr_width * batch_idx)
+            + ']),\n'
+            + '.clkb(clk),\n'
+            + '.addrb(rm_rd_addr),\n'
+            + '.doutb(op_data_'
+            + str(batch_idx)
+            + '));\n\n'
+            for batch_idx in range(batch_size)
+        )
         if self.wm_hier_enable is True:
             # weights memory
-            code_str += self.layer_name + '_wm_ram u_' + self.layer_name + '_wm_ram(\n' + \
-                    '.clka(clk),\n' + \
-                    '.wea(double_buf_wr_en),\n' + \
-                    '.addra(double_buf_wr_addr),\n' + \
-                    '.dina(dma_engineer_dout),\n' + \
-                    '.clkb(clk),\n' + \
-                    '.addrb(double_buf_rd_addr),\n' + \
-                    '.doutb(op_weight));\n\n'
+            code_str += (
+                f'{self.layer_name}_wm_ram u_{self.layer_name}'
+                + '_wm_ram(\n'
+                + '.clka(clk),\n'
+                + '.wea(double_buf_wr_en),\n'
+                + '.addra(double_buf_wr_addr),\n'
+                + '.dina(dma_engineer_dout),\n'
+                + '.clkb(clk),\n'
+                + '.addrb(double_buf_rd_addr),\n'
+                + '.doutb(op_weight));\n\n'
+            )
         else:
-            code_str += self.layer_name + '_wm_ram u_' + self.layer_name + '_wm_ram(\n' + \
-                    '.clka(clk),\n' + \
-                    '.addra(double_buf_rd_addr),\n' + \
-                    '.douta(op_weight));\n\n'
+            code_str += (
+                f'{self.layer_name}_wm_ram u_{self.layer_name}'
+                + '_wm_ram(\n'
+                + '.clka(clk),\n'
+                + '.addra(double_buf_rd_addr),\n'
+                + '.douta(op_weight));\n\n'
+            )
         # bias
-        code_str += self.layer_name + '_bm_ram u_' + self.layer_name + '_bm_ram(\n' + \
-                    '.clka(clk),\n' + \
-                    '.addra(bm_rd_addr),\n' + \
-                    '.douta(op_bias));\n\n'
+        code_str += (
+            f'{self.layer_name}_bm_ram u_{self.layer_name}'
+            + '_bm_ram(\n'
+            + '.clka(clk),\n'
+            + '.addra(bm_rd_addr),\n'
+            + '.douta(op_bias));\n\n'
+        )
 
         return code_str
 
@@ -344,70 +354,160 @@ class Convolution(Layer):
         rm_rd_phy_addr_jump = self.input_shape[2] - self.stride * (self.output_shape[2] - 1) if self.stride > 0 else 1
 
         code_str = self.controller_name + ' #(\n' + \
-                   '.DB_W_IN (' + str(self.input_shape[2]) + '),\n' + \
-                   '.DB_H_IN (' + str(self.input_shape[1]) + '),\n' + \
-                   '.DB_C_IN (' + str(self.input_shape[0]) + '),\n' + \
-                   '.DB_W_OUT (' + str(self.output_shape[2]) + '),\n' + \
-                   '.DB_H_OUT (' + str(self.output_shape[1]) + '),\n' + \
-                   '.DB_C_OUT (' + str(self.output_shape[0]) + '),\n' + \
-                   '.WB_W (' + str(self.kernel_shape[2]) + '),\n' + \
-                   '.WB_H (' + str(self.kernel_shape[1]) + '),\n' + \
-                   '.WB_C (' + str(self.kernel_shape[0]) + '),\n' + \
-                   '.WB_K (' + str(self.kernel_num / self.group) + '),\n' + \
-                   '.GROUP (' + str(self.group) + '),\n' + \
-                   '.RM_WR_ADDR_WIDTH (' + str(self.rm_wr_addr_width) + '),\n' + \
-                   '.RM_WR_NUM_PER_CHANNEL (' + str(self.input_channel_group) + '),\n' + \
-                   '.RM_WR_STRIDE (' + str(self.rm_wr_stride) + '),\n' + \
-                   '.RM_RING_LENGTH (' + str(self.rm_ring_length) + '),\n' + \
-                   '.RM_RD_PHY_ADDR_JUMP (' + str(rm_rd_phy_addr_jump) + '),\n' + \
-                   '.RM_RD_ADDR_WIDTH (' + str(self.rm_rd_addr_width) + '),\n'
+                       '.DB_W_IN (' + str(self.input_shape[2]) + '),\n' + \
+                       '.DB_H_IN (' + str(self.input_shape[1]) + '),\n' + \
+                       '.DB_C_IN (' + str(self.input_shape[0]) + '),\n' + \
+                       '.DB_W_OUT (' + str(self.output_shape[2]) + '),\n' + \
+                       '.DB_H_OUT (' + str(self.output_shape[1]) + '),\n' + \
+                       '.DB_C_OUT (' + str(self.output_shape[0]) + '),\n' + \
+                       '.WB_W (' + str(self.kernel_shape[2]) + '),\n' + \
+                       '.WB_H (' + str(self.kernel_shape[1]) + '),\n' + \
+                       '.WB_C (' + str(self.kernel_shape[0]) + '),\n' + \
+                       '.WB_K (' + str(self.kernel_num / self.group) + '),\n' + \
+                       '.GROUP (' + str(self.group) + '),\n' + \
+                       '.RM_WR_ADDR_WIDTH (' + str(self.rm_wr_addr_width) + '),\n' + \
+                       '.RM_WR_NUM_PER_CHANNEL (' + str(self.input_channel_group) + '),\n' + \
+                       '.RM_WR_STRIDE (' + str(self.rm_wr_stride) + '),\n' + \
+                       '.RM_RING_LENGTH (' + str(self.rm_ring_length) + '),\n' + \
+                       '.RM_RD_PHY_ADDR_JUMP (' + str(rm_rd_phy_addr_jump) + '),\n' + \
+                       '.RM_RD_ADDR_WIDTH (' + str(self.rm_rd_addr_width) + '),\n'
         if self.wm_hier_enable is True:
-            code_str += '.DOUBLE_BUF_WR_DEPTH (' + str(self.wm_wr_depth) + '),\n' + \
-                        '.DOUBLE_BUF_RD_DEPTH (' + str(self.wm_rd_depth) + '),\n' + \
-                        '.DOUBLE_BUF_WR_ADDR_WIDTH (' + str(self.wm_wr_addr_width) + '),\n' + \
-                        '.DOUBLE_BUF_RD_ADDR_WIDTH (' + str(self.wm_rd_addr_width) + '),\n'
+            code_str += (
+                (
+                    (
+                        (
+                            (
+                                (
+                                    f'.DOUBLE_BUF_WR_DEPTH ({str(self.wm_wr_depth)}'
+                                    + '),\n'
+                                    + '.DOUBLE_BUF_RD_DEPTH ('
+                                )
+                                + str(self.wm_rd_depth)
+                                + '),\n'
+                            )
+                            + '.DOUBLE_BUF_WR_ADDR_WIDTH ('
+                        )
+                        + str(self.wm_wr_addr_width)
+                        + '),\n'
+                    )
+                    + '.DOUBLE_BUF_RD_ADDR_WIDTH ('
+                )
+                + str(self.wm_rd_addr_width)
+                + '),\n'
+            )
         else:
-            code_str += '.WM_RD_ADDR_WIDTH (' + str(self.wm_rd_addr_width) + '),\n'
+            code_str += f'.WM_RD_ADDR_WIDTH ({str(self.wm_rd_addr_width)}' + '),\n'
 
-        code_str +='.START_ADDR (' + str(self.ddr_start_addr) + '),\n' + \
-                   '.LENGTH (' + str(self.wm_wr_depth / 2) + '),\n' + \
-                   '.BM_RD_ADDR_WIDTH (' + str(self.bm_rd_addr_width) + '),\n' + \
-                   '.CPF (' + str(self.cpf) + '),\n' + \
-                   '.KPF (' + str(self.kpf) + '),\n' + \
-                   '.STRIDE_H (' + str(self.stride) + '),\n' + \
-                   '.STRIDE_W (' + str(self.stride) + '),\n' + \
-                   '.PAD (' + str(self.pad) + '),\n' + \
-                   '.OP_DELAY (' + str(operator_delay) + '))\n' + \
-                   'u_controller(\n' + \
-                   '.clk(clk),\n' + \
-                   '.rst(rst),\n' + \
-                   '.rm_wr_en(rm_wr_en), \n' + \
-                   '.rm_wr_addr(rm_wr_addr),\n' + \
-                   '.rm_rd_addr(rm_rd_addr),\n' + \
-                   '.op_din_eop(op_din_eop),\n' + \
-                   '.op_din_en(op_din_en),\n'
+        code_str += (
+            (
+                (
+                    (
+                        (
+                            (
+                                (
+                                    (
+                                        (
+                                            (
+                                                (
+                                                    (
+                                                        (
+                                                            (
+                                                                (
+                                                                    (
+                                                                        (
+                                                                            (
+                                                                                (
+                                                                                    (
+                                                                                        (
+                                                                                            (
+                                                                                                (
+                                                                                                    f'.START_ADDR ({str(self.ddr_start_addr)}'
+                                                                                                    + '),\n'
+                                                                                                    + '.LENGTH ('
+                                                                                                )
+                                                                                                + str(
+                                                                                                    self.wm_wr_depth
+                                                                                                    / 2
+                                                                                                )
+                                                                                                + '),\n'
+                                                                                            )
+                                                                                            + '.BM_RD_ADDR_WIDTH ('
+                                                                                        )
+                                                                                        + str(
+                                                                                            self.bm_rd_addr_width
+                                                                                        )
+                                                                                        + '),\n'
+                                                                                    )
+                                                                                    + '.CPF ('
+                                                                                )
+                                                                                + str(
+                                                                                    self.cpf
+                                                                                )
+                                                                                + '),\n'
+                                                                            )
+                                                                            + '.KPF ('
+                                                                        )
+                                                                        + str(
+                                                                            self.kpf
+                                                                        )
+                                                                        + '),\n'
+                                                                    )
+                                                                    + '.STRIDE_H ('
+                                                                )
+                                                                + str(self.stride)
+                                                                + '),\n'
+                                                            )
+                                                            + '.STRIDE_W ('
+                                                        )
+                                                        + str(self.stride)
+                                                        + '),\n'
+                                                    )
+                                                    + '.PAD ('
+                                                )
+                                                + str(self.pad)
+                                                + '),\n'
+                                            )
+                                            + '.OP_DELAY ('
+                                        )
+                                        + str(operator_delay)
+                                        + '))\n'
+                                    )
+                                    + 'u_controller(\n'
+                                )
+                                + '.clk(clk),\n'
+                            )
+                            + '.rst(rst),\n'
+                        )
+                        + '.rm_wr_en(rm_wr_en), \n'
+                    )
+                    + '.rm_wr_addr(rm_wr_addr),\n'
+                )
+                + '.rm_rd_addr(rm_rd_addr),\n'
+            )
+            + '.op_din_eop(op_din_eop),\n'
+        ) + '.op_din_en(op_din_en),\n'
         if self.wm_hier_enable is True:
             code_str += '.double_buf_wr_en(double_buf_wr_en),\n' + \
-                        '.double_buf_wr_addr(double_buf_wr_addr),\n'
+                            '.double_buf_wr_addr(double_buf_wr_addr),\n'
         code_str +='.double_buf_rd_addr(double_buf_rd_addr),\n' + \
-                   '.bm_rd_addr(bm_rd_addr),\n'
+                       '.bm_rd_addr(bm_rd_addr),\n'
         if self.wm_hier_enable is True:
             code_str += '.dma_engineer_req(dma_engineer_req),\n' + \
-                        '.dma_engineer_ack(dma_engineer_ack),\n' + \
-                        '.dma_engineer_dout_en(dma_engineer_dout_en),\n' + \
-                        '.dma_engineer_dout_eop(dma_engineer_dout_eop),\n' + \
-                        '.dma_engineer_start_addr(dma_engineer_start_addr),\n' + \
-                        '.dma_engineer_length(dma_engineer_length),\n'
+                            '.dma_engineer_ack(dma_engineer_ack),\n' + \
+                            '.dma_engineer_dout_en(dma_engineer_dout_en),\n' + \
+                            '.dma_engineer_dout_eop(dma_engineer_dout_eop),\n' + \
+                            '.dma_engineer_start_addr(dma_engineer_start_addr),\n' + \
+                            '.dma_engineer_length(dma_engineer_length),\n'
         code_str +='.blob_din_rdy(blob_din_rdy),\n' + \
-                   '.blob_din_en(blob_din_en), \n' + \
-                   '.blob_din_eop(blob_din_eop),\n' + \
-                   '.blob_dout_rdy(blob_dout_rdy),\n'
+                       '.blob_din_en(blob_din_en), \n' + \
+                       '.blob_din_eop(blob_din_eop),\n' + \
+                       '.blob_dout_rdy(blob_dout_rdy),\n'
         if self.insert_fifo is False:
             code_str += '.blob_dout_en(blob_dout_en),\n' + \
-                        '.blob_dout_eop(blob_dout_eop));\n\n'
+                            '.blob_dout_eop(blob_dout_eop));\n\n'
         else:
             code_str += '.blob_dout_en(blob_dout_en_fifo),\n' + \
-                        '.blob_dout_eop(blob_dout_eop_fifo));\n\n'
+                            '.blob_dout_eop(blob_dout_eop_fifo));\n\n'
 
         return code_str
 

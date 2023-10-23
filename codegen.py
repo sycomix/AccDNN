@@ -48,19 +48,21 @@ def main(argv):
     args = parser.parse_args()
 
     if not os.path.exists(args.model_file):
-        raise Exception ('Can not find the model file: {}'.format(args.model_file))
+        raise Exception(f'Can not find the model file: {args.model_file}')
     if not os.path.exists(args.pretrained_model):
-        raise Exception ('Can not find the pretrained model file: {}'.format(args.pretrained_model))
+        raise Exception(
+            f'Can not find the pretrained model file: {args.pretrained_model}'
+        )
     if (args.optim_file is not None) and (not os.path.exists(args.optim_file)):
-        raise Exception ('Can not find the optimization file: {}'.format(args.optim_file))
+        raise Exception(f'Can not find the optimization file: {args.optim_file}')
 
 
     if os.path.exists(OUTPUT_PATH):
-        os.system('rm -rf ' + OUTPUT_PATH)
-    os.system('mkdir -p ' + OUTPUT_PATH)
-    os.system('mkdir -p ' + VERILOG_FILE_PATH)
-    os.system('mkdir -p ' + MEM_COE_FILE_PATH)
-    os.system('mkdir -p ' + TIMING_FILE_PATH)
+        os.system(f'rm -rf {OUTPUT_PATH}')
+    os.system(f'mkdir -p {OUTPUT_PATH}')
+    os.system(f'mkdir -p {VERILOG_FILE_PATH}')
+    os.system(f'mkdir -p {MEM_COE_FILE_PATH}')
+    os.system(f'mkdir -p {TIMING_FILE_PATH}')
 
     caffe.set_mode_cpu()
     if not args.profile:

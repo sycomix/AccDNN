@@ -24,7 +24,7 @@ def ipcore_tcl_gen(ips):
                                    #'CONFIG.Port_B_Clock {100} ',
                                    #'CONFIG.Port_B_Enable_Rate {100}] ',
                                    '[get_ips %s]\n'%ip['module_name']])
-            
+
             elif ip['memory_type'] == 'Single_Port_ROM':
                 tcl_str += ''.join(['create_ip -name blk_mem_gen -vendor xilinx.com -library ip ',
                                    '-module_name %s\n'%ip['module_name']])
@@ -48,17 +48,16 @@ def ipcore_tcl_gen(ips):
                 raise Exception('Block Memory type is not supported.')
 
         elif ip['ip_name'] == 'dist_mem_gen':
-            if ip['memory_type'] == 'simple_dual_port_ram':
-                tcl_str += ''.join(['create_ip -name dist_mem_gen -vendor xilinx.com -library ip ',
-                                   '-module_name %s\n'%ip['module_name']])
-                tcl_str += ''.join(['set_property -dict [list ',
-                                   'CONFIG.memory_type {simple_dual_port_ram} ',
-                                   'CONFIG.data_width {%d} '%ip['wr_width'],
-                                   'CONFIG.depth {%d}] '%ip['wr_depth'],
-                                   '[get_ips %s]\n'%ip['module_name']])
-            else:
+            if ip['memory_type'] != 'simple_dual_port_ram':
                 raise Exception('Block Memory type is not supported.')
 
+            tcl_str += ''.join(['create_ip -name dist_mem_gen -vendor xilinx.com -library ip ',
+                               '-module_name %s\n'%ip['module_name']])
+            tcl_str += ''.join(['set_property -dict [list ',
+                               'CONFIG.memory_type {simple_dual_port_ram} ',
+                               'CONFIG.data_width {%d} '%ip['wr_width'],
+                               'CONFIG.depth {%d}] '%ip['wr_depth'],
+                               '[get_ips %s]\n'%ip['module_name']])
         else:
             raise Exception('IP Core type is not supported.')
         #Generate_target

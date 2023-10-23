@@ -5,10 +5,7 @@ import numpy as np
 import struct
 
 def _bool2int(x, dw):
-    y = 0
-    for i,j in enumerate(x):
-       y += j<<(i * dw)
-    return y
+    return sum(j<<(i * dw) for i, j in enumerate(x))
 
 def _quantize(mat, dw, dq, is_complement=True):
     FIX_POINT_MAX = 2 ** (dw - 1) - 1
@@ -42,10 +39,8 @@ def save2coe(file_path_name, mat, dw, dq):
         row_str += ',\n'
         coe_str += row_str
     coe_str = coe_str[:-2] + ';\n'
-    #write to coe file    
-    fd = open(file_path_name, 'w')
-    fd.write(coe_str)
-    fd.close()
+    with open(file_path_name, 'w') as fd:
+        fd.write(coe_str)
 
 def mat2uint16(mat, dw, dq):
      mat = _quantize(mat, dw, dq)
@@ -63,10 +58,8 @@ def uint16_dump_hex_aligned(file_path_name, mat):
             row_str = '%04X'%(col) + row_str
         row_str += '\n'
         coe_str += row_str
-    #write to coe file
-    fd = open(file_path_name, 'w')
-    fd.write(coe_str)
-    fd.close()
+    with open(file_path_name, 'w') as fd:
+        fd.write(coe_str)
 
 def mat_dump_float(file_path_name, mat, dw, dq):
     if mat.ndim != 1:

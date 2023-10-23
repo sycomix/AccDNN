@@ -48,18 +48,16 @@ def mat2hex(file_path_name, mat, dw, dq):
                 raise Exception("unsupported")
         row_str += '\n'
         coe_str += row_str
-    #write to coe file
-    fd = open(file_path_name, 'w')
-    fd.write(coe_str)
-    fd.close()
+    with open(file_path_name, 'w') as fd:
+        fd.write(coe_str)
 
 din = np.round(np.random.randn(VEC_NUMBER,VEC_LENGTH) * (2 ** (DIN_W - DIN_Q - 2)) * (2 ** DIN_Q)) / (2 ** DIN_Q)
 weight = np.round(np.random.randn(VEC_LENGTH, KERNEL_NUM) * (2 ** (WW - WQ - 2)) * (2 ** WQ)) / (2 ** WQ)
 dout = np.round(np.dot(din, weight) * (2 ** DOUT_Q)) / (2 ** DOUT_Q)
 
 if os.path.exists(HEX_OUT_DIR):
-    os.system('rm -rf ' + HEX_OUT_DIR)
-os.system('mkdir -p ' + HEX_OUT_DIR)
+    os.system(f'rm -rf {HEX_OUT_DIR}')
+os.system(f'mkdir -p {HEX_OUT_DIR}')
 
 mat2hex(os.path.join(HEX_OUT_DIR, 'din.txt'), din.reshape(-1, CPF), DIN_W, DIN_Q)
 if DIN_W == 8 and WW == 8 and KERNEL_NUM == 2:

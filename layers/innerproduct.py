@@ -28,5 +28,3 @@ class InnerProduct(Convolution):
         self.layer_type = 'InnerProduct'
         
 
-if __name__  == '__main__':
-    pass
